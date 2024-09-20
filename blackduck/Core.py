@@ -9,12 +9,39 @@ from .Exceptions import UnknownVersion, CreateFailedAlreadyExists, CreateFailedU
 logger = logging.getLogger(__name__)
 
 def read_config(self):
-    try:
-        with open('.restconfig.json','r') as f:
-            self.config = json.load(f)
-    except:
-        logging.error(f"Unable to load configuration from '.restconfig.json'. Make sure you create one with proper connection and authentication values for your Black Duck server")
-        raise
+        try:
+            with open('.restconfig.json', 'r') as f:
+                self.config = json.load(f)
+            
+            # Check if baseurl ends with a slash
+            if self.config['baseurl'].endswith('/'):
+                error_message = "Error: The 'baseurl' in .restconfig.json ends with a '/'. Please remove the trailing slash."
+                logger.error(error_message)
+                print(error_message, file=sys.stderr)
+                sys.exit(1)  # Exit the program with an error code
+            
+            # Validate that baseurl starts with http:// or https://
+            if not self.config['baseurl'].startswith(('http://', 'https://')):
+                error_message = "Error: The 'baseurl' in .restconfig.json must start with 'http://' or 'https://'."
+                logger.error(error_message)
+                print(error_message, file=sys.stderr)
+                sys.exit(1)  # Exit the program with an error code
+
+        except FileNotFoundError:
+            error_message = "Error: Unable to find '.restconfig.json'. Make sure you create one with proper connection and authentication values for your Black Duck server."
+            logger.error(error_message)
+            print(error_message, file=sys.stderr)
+            sys.exit(1)
+        except json.JSONDecodeError:
+            error_message = "Error: '.restconfig.json' is not a valid JSON file. Please check its contents."
+            logger.error(error_message)
+            print(error_message, file=sys.stderr)
+            sys.exit(1)
+        except KeyError as e:
+            error_message = f"Error: Missing required key in '.restconfig.json': {str(e)}"
+            logger.error(error_message)
+            print(error_message, file=sys.stderr)
+            sys.exit(1)
         
 def write_config(self):
     with open(self.configfile,'w') as f:
@@ -187,5 +214,3 @@ def get_matched_components(self, version_obj, limit=9999):
 def _check_version_compatibility(self):
     if int(self.bd_major_version) < 2018:
         raise UnsupportedBDVersion("The BD major version {} is less than the minimum required major version {}".format(self.bd_major_version, 2018))        
-
-    
